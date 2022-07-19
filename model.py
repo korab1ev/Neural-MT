@@ -1,3 +1,9 @@
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+import numpy as np
+from copy import deepcopy
+
 class BasicModel(nn.Module):
     def __init__(self, inp_voc, out_voc, emb_size=64, hid_size=128):
         """
@@ -26,7 +32,7 @@ class BasicModel(nn.Module):
 
     def encode(self, inp, **flags):
         """
-        :Takes batch of input sequences, computes initial decoder states for each sequence(sample) in batch
+        :Takes batch of input sequences, computes initial decoder state 
         :param inp: matrix of input tokens [batch, time]
         :returns: initial decoder state tensors, one or many
         """
@@ -45,7 +51,7 @@ class BasicModel(nn.Module):
         
         dec_start = self.dec_start(last_state)
         return [dec_start] # returns h0_0, h0_1, h0_2, ..., h0_n for decoder 
-                           # indeces 0,1,2,...,n correspond to number of samples in batch
+                           # indices 0,1,2,...,n correspond to number of samples in batch
 
     def decode_step(self, prev_state, prev_tokens, **flags):
         """
@@ -82,9 +88,10 @@ class BasicModel(nn.Module):
         return torch.stack(logits_sequence, dim=1)
 
     def decode_inference(self, initial_state, max_len=100, **flags):
-        """ Generate translations from model (greedy version) """
+        """ Generate translations from model (greedy version) == (beam_search with beam_size=1)"""
         batch_size, device = len(initial_state[0]), initial_state[0].device
         state = initial_state
+        # generate first output after BOS
         outputs = [torch.full([batch_size], self.out_voc.bos_ix, dtype=torch.int64, 
                               device=device)]
         all_states = [initial_state]
@@ -96,8 +103,33 @@ class BasicModel(nn.Module):
         
         return torch.stack(outputs, dim=1), all_states
 
-    def translate_lines(self, inp_lines, **kwargs):
+    def decode_inference_beam_search(self, initial_state, beam_size=2, max_len=100, **flags):
+        """ Generate beam_size translations(hypos) from model """
+        batch_size, device = len(initial_state[0]), initial_state[0].device
+        state = initial_state
+
+        outputs = [torch.full([batch_size], self.out_voc.bos_ix, dtype=torch.int64, 
+                              device=device)] # outputs for first BOS is BOS (x batch_size, coz for each sample)
+        probs = np.zeros(shape=(beam_size, batch_size))
+        states = [deepcopy(initial_state) for _ in range(beam_size)]  # [beam_size, [batch_size, hid_size]]
+        
+        # generate first output after BOS
+        
+        for _ in range(max_len):
+            next_beams = [[] for _ in range(batch_size)]
+            states_history = []
+            # beam iteration loop:
+            for i in range(len(outputs)): # at the start len(outputs) == 1 (outputs = [[bos_ix, bos_ix, ... , bos_ix]])
+                prev_tokens = torch.tensor([token for token in outputs[i]], device=device)
+                cur_states, logits = self.decoder_step(states[i], prev_tokens)
+                log_probs = torch.log_softmax(logits, dim=-1).detach().cpu().numpy() # log-probabilities [batch_size, out_len]
+                states_history.append(cur_states)
+
+    def translate_lines(self, inp_lines, device, beam_size=None, **kwargs):
         inp = self.inp_voc.to_matrix(inp_lines).to(device)
         initial_state = self.encode(inp)
-        out_ids, states = self.decode_inference(initial_state, **kwargs)
+        if beam_size == None:
+            out_ids, states = self.decode_inference(initial_state, **kwargs)
+        else:
+            out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs), None
         return self.out_voc.to_lines(out_ids.cpu().numpy()), states
