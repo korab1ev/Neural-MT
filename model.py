@@ -109,21 +109,21 @@ class BasicModel(nn.Module):
         state = initial_state
 
         outputs = [torch.full([batch_size], self.out_voc.bos_ix, dtype=torch.int64, 
-                              device=device)] # outputs for first BOS is BOS (x batch_size, coz for each sample)
+                              device=device)] # outputs for first BOS
         probs = np.zeros(shape=(beam_size, batch_size))
-        states = [deepcopy(initial_state) for _ in range(beam_size)]  # [beam_size, [batch_size, hid_size]]
-        
-        # generate first output after BOS
-        
+        states = [deepcopy(initial_state[0].detach()) for _ in range(beam_size)]  # [beam_size, [batch_size, hid_size]]
+
         for _ in range(max_len):
             next_beams = [[] for _ in range(batch_size)]
             states_history = []
-            # beam iteration loop:
-            for i in range(len(outputs)): # at the start len(outputs) == 1 (outputs = [[bos_ix, bos_ix, ... , bos_ix]])
+            # beam loop:
+            for i in range(len(outputs)): # at the beginning len(outputs) == 1 (outputs = [[bos_ix, bos_ix, ... , bos_ix]])
                 prev_tokens = torch.tensor([token for token in outputs[i]], device=device)
-                cur_states, logits = self.decoder_step(states[i], prev_tokens)
+                cur_states, logits = self.decode_step(states[i], prev_tokens)
                 log_probs = torch.log_softmax(logits, dim=-1).detach().cpu().numpy() # log-probabilities [batch_size, out_len]
                 states_history.append(cur_states)
+                # finish this code
+                
 
     def translate_lines(self, inp_lines, device, beam_size=None, **kwargs):
         inp = self.inp_voc.to_matrix(inp_lines).to(device)
