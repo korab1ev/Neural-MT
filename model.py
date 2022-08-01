@@ -133,3 +133,115 @@ class BasicModel(nn.Module):
         else:
             out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs), None
         return self.out_voc.to_lines(out_ids.cpu().numpy()), states
+
+
+class AttentionLayer(nn.Module):
+    def __init__(self, enc_size, dec_size, hid_size, activ=torch.tanh):
+        """ A layer that computes additive attention response and weights """
+        super().__init__()
+
+        self.enc_size = enc_size # num units in encoder state
+        self.dec_size = dec_size # num units in decoder state
+        self.hid_size = hid_size # attention layer hidden units
+        self.activ = activ       # attention layer hidden nonlinearity
+        
+        self.linear_enc = nn.Linear(enc_sie, hid_size)
+        self.linear_dec = nn.Linear(dec_size, hid_size)
+        self.linear_out = nn.Linear(hid_size, 1)
+        
+
+    def forward(self, enc, dec, inp_mask):
+        """
+        Computes attention response and weights
+        :param enc: encoder activation sequence, float32[batch_size, ninp, enc_size]
+        :param dec: single decoder state used as "query", float32[batch_size, dec_size]
+        :param inp_mask: mask on enc activatons (0 after first eos), float32 [batch_size, ninp]
+        :returns: attn[batch_size, enc_size], probs[batch_size, ninp]
+            - attn - attention response vector (weighted sum of enc)
+            - probs - attention weights after softmax
+        """
+
+        # Compute logits (logits = [a0,...,a_t,..., a_T] - float32 values)
+        # a_t = Linear_out(tanh(Linear_enc(h_enc_t) + Linear_dec(h_dec)))
+        logits = self.linear_out(self.activ( self.linear_enc(enc) + self.linear_dec(dec) ))
+
+        # Apply mask - if mask is 0, logits should be -inf or -1e9
+        # You may need torch.where
+        # masked_logits = logits[inp_mask] 
+        masked_logits = torch.where(inp_mask, logits, -1e9)
+
+        # Compute attention probabilities (softmax)
+        # p_t = softmax(a_t, [a_0, ..., a_T])
+        probs = nn.softmax(logits)
+
+        # Compute attention response using enc and probs
+        attn = probs * enc
+
+        return attn, probs
+
+
+class AttentiveModel(BasicModel):
+    def __init__(self, name, inp_voc, out_voc,
+                 emb_size=64, hid_size=128, attn_size=128, bid=False):
+        """ Translation model that uses attention. """
+        super().__init__(inp_voc, out_voc, emb_size, hid_size)
+        
+        # We could've used these 3 functions below from BasicModel, but here we add bidirectionality
+        self.enc0 = nn.GRU(emb_size, hid_size, batch_first=True, bidirectional=bid)
+        self.dec_start = nn.Linear(hid_size + hid_size * bid, hid_size)
+        self.dec0 = nn.GRUCell(emb_size + hid_size + hid_size * bid, hid_size)
+        self.attn = AttentionLayer(hid_size + hid_size * bid, hid_size, attn_size)
+
+
+    def encode(self, inp, **flags):
+        """
+        Takes symbolic input sequence, computes initial state
+        :param inp: matrix of input tokens [batch, time]
+        :return: a list of initial decoder state tensors
+        """
+
+        # encode input sequence, create initial decoder states
+        inp_emb = self.emb_inp(inp)
+
+        enc_seq, [last_state_but_not_really] = self.enc0(inp_emb) 
+        # enc_seq: [batch, time, hid_size], last_state: [batch, hid_size]
+        
+        lengths = (inp != self.inp_voc.eos_ix).to(torch.int64).sum(dim=1).clamp_max(inp.shape[1] - 1)
+        last_state = enc_seq[torch.arange(len(enc_seq)), lengths]
+        # ^-- shape: [batch_size, hid_size]
+        
+        dec_start = self.dec_start(last_state) # initial state for decoder
+
+        # compute mask for input sequence
+        enc_mask = self.out_voc.compute_mask(inp)
+        
+        # apply attention layer from initial decoder hidden state 
+        _, first_attn_probas = self.attn(enc_seq, dec_start, enc_mask)
+        
+        return [dec_start, enc_seq, enc_mask, first_attn_probas]
+   
+
+    def decode_step(self, prev_state, prev_tokens, **flags):
+        """
+        Takes previous decoder state and tokens, returns new state and logits for next tokens
+        :param prev_state: a list of previous decoder state tensors
+        :param prev_tokens: previous output tokens, an int vector of [batch_size]
+        :return: a list of next decoder state tensors, a tensor of logits [batch, n_tokens]
+        """
+        
+        prev_gru0_state, enc_seq, enc_mask, first_attn_probas = prev_state
+        attn, attn_probs = self.attn(enc_seq, prev_gru0_state, enc_mask)
+
+        x = self.emb_out(prev_tokens)
+        
+        x = torch.cat([attn, x], dim=-1)
+        x = self.dec0(x, prev_gru0_state)
+        
+        new_dec_state = [x, enc_seq, enc_mask, attn_prob]
+        output_logits = self.logits(x)
+        
+        return new_dec_state, output_logits
+
+
+
+
