@@ -145,7 +145,7 @@ class AttentionLayer(nn.Module):
         self.hid_size = hid_size # attention layer hidden units
         self.activ = activ       # attention layer hidden nonlinearity
         
-        self.linear_enc = nn.Linear(enc_sie, hid_size)
+        self.linear_enc = nn.Linear(enc_size, hid_size)
         self.linear_dec = nn.Linear(dec_size, hid_size)
         self.linear_out = nn.Linear(hid_size, 1)
         
@@ -237,7 +237,7 @@ class AttentiveModel(BasicModel):
         x = torch.cat([attn, x], dim=-1)
         x = self.dec0(x, prev_gru0_state)
         
-        new_dec_state = [x, enc_seq, enc_mask, attn_prob]
+        new_dec_state = [x, enc_seq, enc_mask, attn_probs]
         output_logits = self.logits(x)
         
         return new_dec_state, output_logits
