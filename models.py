@@ -102,46 +102,59 @@ class BasicModel(nn.Module):
 
         return torch.stack(outputs, dim=1), all_states
 
-    def decode_inference_beam_search(self, initial_state, beam_size=2, max_len=100, verbose=False, **flags):
+    def decode_inference_beam_search(self, initial_state, beam_size, max_len=100, **flags):
         batch_size, device = len(initial_state[0]), initial_state[0].device
+        state = initial_state
 
-        outputs = [[(self.out_voc.bos_ix, )] * batch_size]
-        probs = np.zeros(shape=(beam_size,batch_size))
+        outputs = [[(self.out_voc.bos_ix,)] * batch_size]
+        probs = np.zeros(shape=(beam_size, batch_size))
         states = [deepcopy([initial_state[0].detach()]) for _ in range(beam_size)]
-        out_ids = [[] for _ in range(batch_size)]
+        #hypos = [[] for _ in range(batch_size)]
 
         for _ in range(max_len):
-            next_beams = [[] for _ in range(batch_size)]
-            state_history = []
+            next_beams = [[] for _ in range(batch_size)] 
+            states_history = []
+            for i in range(len(outputs)):
+                prev_tokens = torch.tensor([tokens[-1] for tokens in outputs[i]], device=device)
 
-            for beam_idx in range(len(outputs)):
-                prev_tokens = torch.tensor([tokens[-1] for tokens in outputs[beam_idx]], device=device)
-                state, logits = self.decode_step(states[beam_idx], prev_tokens)
+                cur_states, logits = self.decode_step(states[i], prev_tokens)
                 logits = torch.log_softmax(logits, dim=-1).detach().cpu().numpy()
-                state_history.append(state)
+                states_history.append(cur_states)
 
                 for b, logit in enumerate(logits):
-                    for idx in np.argpartition(logit, -beam_size)[-beam_size:]:
-                        if idx == 1 and np.exp(logit[idx]) < 0.6: # if we've predicted <EOS>
-                            idx = 228
-                        next_beams[b].append( [ outputs[beam_idx][b] + (idx,), probs[beam_idx][b] + logit[idx], beam_idx ] )
-
-            next_beams.sort(key=lambda x: x[1], reverse=True)
+                    if outputs[i][b][-1] == 1:
+                        print(f'outputs[{i}][{b}] = \n', outputs[i][b])
+                        next_beams[b].append([outputs[i][b], probs[i, b], i])  
+                    else:
+                        print(f'outputs[{i}][{b}] = \n', outputs[i][b])
+                        for idx in np.argpartition(logit, -beam_size)[-beam_size:]:
+                            next_beams[b].append([outputs[i][b] + (idx,), logit[idx] + probs[i, b], i])                 
+                        
+            print('next_beams = ', next_beams)
             outputs = [[None] * batch_size for _ in range(beam_size)]
             for i in range(batch_size):
+                next_beams[i].sort(key=lambda x: x[1], reverse=True)
+                print(f'next_beams[{i}] after sort: ', next_beams[i])
                 for j in range(beam_size):
-                    outputs[j][i], probs[j,i], beam_idx = next_beams[i][j]
-                    states[j][0][i] = state_history[beam_idx][0][i]
-        
-        if verbose == True:
-            return outputs, states 
-
+                    outputs[j][i], probs[j, i], beam_idx = next_beams[i][j]
+                    #if outputs[j][i][-1] == 1:
+                        #hypos[i].append([probs[j, i] + 0.1 * _, outputs[j][i]])
+                    states[j][0][i] = states_history[beam_idx][0][i]
+        print('outputs = \n', outputs)
+        #print('hypos = \n', hypos)
+        #for i in range(len(hypos)):
+        #    if not hypos[i]: # if on batch_i we haven't generated a sample ending with _EOS_
+        #        hypos[i].append([probs[0][i], outputs[0][i]])
+        #    hypos[i].sort()
+            
+        #print('hypos after sort = \n', hypos)
+        #return [hypo[-1][1] for hypo in hypos], states
         return outputs[0], states
 
     def translate_lines(self, inp_lines, device, beam_size=None, **kwargs):
         inp = self.inp_voc.to_matrix(inp_lines).to(device)
         initial_state = self.encode(inp)
-        if beam_size == None:
+        if beam_size is None:
             out_ids, states = self.decode_inference(initial_state, **kwargs)
         else:
             out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs)
