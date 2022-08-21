@@ -102,15 +102,13 @@ class BasicModel(nn.Module):
 
         return torch.stack(outputs, dim=1), all_states
 
-    def decode_inference_beam_search(self, initial_state, beam_size=2, max_len=100, **flags):
+    def decode_inference_beam_search(self, initial_state, beam_size=2, max_len=100, verbose=False, **flags):
         batch_size, device = len(initial_state[0]), initial_state[0].device
 
         outputs = [[(self.out_voc.bos_ix, )] * batch_size]
         probs = np.zeros(shape=(beam_size,batch_size))
         states = [deepcopy([initial_state[0].detach()]) for _ in range(beam_size)]
         out_ids = [[] for _ in range(batch_size)]
-
-        hypos = [[] for _ in range(batch_size)]
 
         for _ in range(max_len):
             next_beams = [[] for _ in range(batch_size)]
@@ -124,6 +122,8 @@ class BasicModel(nn.Module):
 
                 for b, logit in enumerate(logits):
                     for idx in np.argpartition(logit, -beam_size)[-beam_size:]:
+                        if idx == 1 and np.exp(logit[idx]) < 0.6: # if we've predicted <EOS>
+                            idx = 228
                         next_beams[b].append( [ outputs[beam_idx][b] + (idx,), probs[beam_idx][b] + logit[idx], beam_idx ] )
 
             next_beams.sort(key=lambda x: x[1], reverse=True)
@@ -132,6 +132,9 @@ class BasicModel(nn.Module):
                 for j in range(beam_size):
                     outputs[j][i], probs[j,i], beam_idx = next_beams[i][j]
                     states[j][0][i] = state_history[beam_idx][0][i]
+        
+        if verbose == True:
+            return outputs, states 
 
         return outputs[0], states
 
