@@ -109,8 +109,7 @@ class BasicModel(nn.Module):
         outputs = [[(self.out_voc.bos_ix,)] * batch_size]
         probs = np.zeros(shape=(beam_size, batch_size))
         states = [deepcopy([initial_state[0].detach()]) for _ in range(beam_size)]
-        #hypos = [[] for _ in range(batch_size)]
-
+        
         for _ in range(max_len):
             next_beams = [[] for _ in range(batch_size)] 
             states_history = []
@@ -123,32 +122,23 @@ class BasicModel(nn.Module):
 
                 for b, logit in enumerate(logits):
                     if outputs[i][b][-1] == 1:
-                        print(f'outputs[{i}][{b}] = \n', outputs[i][b])
+                        #print(f'outputs[{i}][{b}] = \n', outputs[i][b]) 
                         next_beams[b].append([outputs[i][b], probs[i, b], i])  
                     else:
-                        print(f'outputs[{i}][{b}] = \n', outputs[i][b])
+                        #print(f'outputs[{i}][{b}] = \n', outputs[i][b]) 
                         for idx in np.argpartition(logit, -beam_size)[-beam_size:]:
                             next_beams[b].append([outputs[i][b] + (idx,), logit[idx] + probs[i, b], i])                 
                         
-            print('next_beams = ', next_beams)
+            #print('next_beams = ', next_beams) 
             outputs = [[None] * batch_size for _ in range(beam_size)]
             for i in range(batch_size):
                 next_beams[i].sort(key=lambda x: x[1], reverse=True)
-                print(f'next_beams[{i}] after sort: ', next_beams[i])
+                #print(f'next_beams[{i}] after sort: ', next_beams[i]) 
                 for j in range(beam_size):
                     outputs[j][i], probs[j, i], beam_idx = next_beams[i][j]
-                    #if outputs[j][i][-1] == 1:
-                        #hypos[i].append([probs[j, i] + 0.1 * _, outputs[j][i]])
                     states[j][0][i] = states_history[beam_idx][0][i]
-        print('outputs = \n', outputs)
-        #print('hypos = \n', hypos)
-        #for i in range(len(hypos)):
-        #    if not hypos[i]: # if on batch_i we haven't generated a sample ending with _EOS_
-        #        hypos[i].append([probs[0][i], outputs[0][i]])
-        #    hypos[i].sort()
-            
-        #print('hypos after sort = \n', hypos)
-        #return [hypo[-1][1] for hypo in hypos], states
+        #print('outputs = \n', outputs)
+
         return outputs[0], states
 
     def translate_lines(self, inp_lines, device, beam_size=None, **kwargs):
