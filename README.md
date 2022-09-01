@@ -1,5 +1,5 @@
 # To-do:
-1. __Investigate why vanilla enc-dec architecture bias towards shorter candidates__
+1. __Do length normalization__ (the model is bias towards shorter candidates)
 2. __Attention mode = 'Dot-product','Bilinear','Multi-Layer Perceptron'__
 3. __class LuongModel__
 4. __class BagdanauModel__
