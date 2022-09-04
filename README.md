@@ -8,3 +8,8 @@
 3. __Visualise attentions__
 4. __Try bidirectional encoder__
 5. __Try reversing the input sequence in the encoder__ (vanilla enc-dec architecture, find the article)
+
+
+# Articles:
+
+- Simple and Effective Noisy Channel Modeling for Neural Machine Translation (https://arxiv.org/pdf/1908.05731.pdf)
