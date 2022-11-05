@@ -12,4 +12,8 @@
 
 # Articles:
 
+<<<<<<< HEAD
 - Simple and Effective Noisy Channel Modeling for Neural Machine Translation (https://arxiv.org/pdf/1908.05731.pdf)
+=======
+- Simple and Effective Noisy Channel Modeling for Neural Machine Translation (https://arxiv.org/pdf/1908.05731.pdf)
+>>>>>>> 5d800e45dc8540b0ab41c51515b62037cff9c966
