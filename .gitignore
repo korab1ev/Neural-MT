@@ -1,6 +1,9 @@
 # logs
 log/
 
+# img 
+img/
+
 
 # temporary files
 *.bak
