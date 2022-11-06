@@ -108,7 +108,8 @@ class BasicModel(nn.Module):
 
         outputs = [[(self.out_voc.bos_ix,)] * batch_size]
         probs = np.zeros(shape=(beam_size, batch_size))
-        states = [deepcopy([initial_state[0].detach()]) for _ in range(beam_size)]
+        #states = [deepcopy([initial_state[0].detach()]) for _ in range(beam_size)]
+        states = [deepcopy(initial_state) for _ in range(beam_size)]
         
         for _ in range(max_len):
             next_beams = [[] for _ in range(batch_size)] 
@@ -139,15 +140,17 @@ class BasicModel(nn.Module):
                     states[j][0][i] = states_history[beam_idx][0][i]
         #print('outputs = \n', outputs)
 
-        return outputs[0], states
+        #return outputs[0], states
+        return outputs[0]
 
     def translate_lines(self, inp_lines, device, beam_size=None, **kwargs):
         inp = self.inp_voc.to_matrix(inp_lines).to(device)
         initial_state = self.encode(inp)
         if beam_size is None:
             out_ids, states = self.decode_inference(initial_state, **kwargs)
+            # states -> [n_inp x [batch_size x hid_size]]
         else:
-            out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs)
+            out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs), None
         return self.out_voc.to_lines(out_ids), states
 
 
@@ -188,6 +191,9 @@ class AttentionLayer(nn.Module):
         x = self.linear_out(x) # [batch_size, ninp, 1] 
         # now x is [a0,..,a_t,...,a_T] matrix
 
+        # Apply mask - if mask is 0, logits should be -inf or -1e9
+        x[torch.where(inp_mask == False)] = -1e9
+
         # Compute attention probabilities (softmax)
         probs = self.soft(x.reshape(batch_size, n_inp))        
         
@@ -205,29 +211,25 @@ class AttentiveModel(BasicModel):
 
         self.enc0 = nn.GRU(emb_size, hid_size, batch_first=True, bidirectional=bid)
         self.dec_start = nn.Linear(hid_size + hid_size * bid, hid_size)
-        self.Wc = nn.Linear(emb_size + hid_size + hid_size * bid, emb_size + hid_size + hid_size * bid)
+        
+        #self.Wc = nn.Linear(emb_size + hid_size + hid_size * bid, emb_size + hid_size + hid_size * bid)
         self.dec0 = nn.GRUCell(emb_size + hid_size + hid_size * bid, hid_size)
         self.attn = AttentionLayer(hid_size + hid_size * bid, hid_size, attn_size)
-
 
     def encode(self, inp, **flags):
         """
         Takes symbolic input sequence, computes initial state
         :param inp: matrix of input tokens [batch, time]
-        :return: a list of initial decoder state tensors
+        :return: initial decoder state (h0)
+                 encoder activation sequence, float32[batch_size, ninp, enc_size]
+                 mask on enc activatons (0 after first eos), float32 [batch_size, ninp]
+                 attention probabilities
         """
-
-        # encode input sequence, create initial decoder states
         inp_emb = self.emb_inp(inp)
 
         enc_seq, [last_state_but_not_really] = self.enc0(inp_emb) 
-        # enc_seq: [batch, time, hid_size], last_state: [batch, hid_size]
         
-        lengths = (inp != self.inp_voc.eos_ix).to(torch.int64).sum(dim=1).clamp_max(inp.shape[1] - 1)
-        last_state = enc_seq[torch.arange(len(enc_seq)), lengths]
-        # ^-- shape: [batch_size, hid_size]
-        
-        dec_start = self.dec_start(last_state) # initial state for decoder
+        [dec_start] = super().encode(inp, **flags)
 
         # compute mask for input sequence
         enc_mask = self.out_voc.compute_mask(inp)
@@ -236,7 +238,6 @@ class AttentiveModel(BasicModel):
         _, first_attn_probas = self.attn(enc_seq, dec_start, enc_mask)
         
         return [dec_start, enc_seq, enc_mask, first_attn_probas]
-   
 
     def decode_step(self, prev_state, prev_tokens, **flags):
         """
@@ -245,8 +246,10 @@ class AttentiveModel(BasicModel):
         :param prev_tokens: previous output tokens, an int vector of [batch_size]
         :return: a list of next decoder state tensors, a tensor of logits [batch, n_tokens]
         """
+        #print(len(prev_state)) # 4
+        #print(prev_state[0].shape) # [32, 128] => prev_state -> [4,[32,128]]
         
-        prev_gru0_state, enc_seq, enc_mask, first_attn_probas = prev_state
+        prev_gru0_state, enc_seq, enc_mask, _ = prev_state
         attn, attn_probs = self.attn(enc_seq, prev_gru0_state, enc_mask)
 
         x = self.emb_out(prev_tokens)
@@ -259,6 +262,3 @@ class AttentiveModel(BasicModel):
         output_logits = self.logits(x)
         
         return new_dec_state, output_logits
-
-
-
