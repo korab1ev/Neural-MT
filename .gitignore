@@ -4,6 +4,23 @@ log/
 # img 
 img/
 
+# bpe tokenization
+bpe*
+train.*
+vocab.py
+
+# data
+data.txt
+
+# torch version
+1.3.0
+
+# checkpoints
+
+.ipynb_checkpoints/
+__pycache__
 
 # temporary files
 *.bak
+
+
