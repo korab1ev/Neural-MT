@@ -1,3 +1,9 @@
+# Files:
+- ``notebook.ipynb`` - contains all experimental results
+- ``notebook-desc.ipynb`` - more detailed notebook (contains auxilary outputs & pictures)
+- ``models.py`` - code for all the models 
+- ``utils.py`` - helper functions
+
 # To-do:
 
 1. __Solutions & ways to impove BLEU__:
@@ -6,11 +12,12 @@
 - Globally normalized models
 2. __Local length normalization__ (the model is bias towards shorter candidates)
 3. __Visualise attentions__
-4. __Try bidirectional encoder__
-5. __Try reversing the input sequence in the encoder__ (vanilla enc-dec architecture, find the article)
 
 
 # Articles:
 
-- Simple and Effective Noisy Channel Modeling for Neural Machine Translation (https://arxiv.org/pdf/1908.05731.pdf)
-
+- [On The Evaluation of Machine Translation Systems Trained With Back-Translation](https://arxiv.org/pdf/1908.05204.pdf)
+- [Domain, Translationese and Noise in Synthetic Data for Neural Machine Translation](https://arxiv.org/pdf/1911.03362.pdf)
+- [Understanding Back-Translation at Scale](https://arxiv.org/abs/1808.09381)
+- [Very Deep Transformers for Neural Machine Translation](https://arxiv.org/abs/2008.07772)
+- [Simple and Effective Noisy Channel Modeling for Neural Machine Translation](https://arxiv.org/pdf/1908.05731.pdf)
