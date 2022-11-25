@@ -16,8 +16,8 @@
 
 # Articles:
 
-- [On The Evaluation of Machine Translation Systems Trained With Back-Translation](https://arxiv.org/pdf/1908.05204.pdf)
-- [Domain, Translationese and Noise in Synthetic Data for Neural Machine Translation](https://arxiv.org/pdf/1911.03362.pdf)
+- [On The Evaluation of Machine Translation Systems Trained With Back-Translation](https://arxiv.org/abs/1908.05204.pdf)
+- [Domain, Translationese and Noise in Synthetic Data for Neural Machine Translation](https://arxiv.org/abs/1911.03362)
 - [Understanding Back-Translation at Scale](https://arxiv.org/abs/1808.09381)
 - [Very Deep Transformers for Neural Machine Translation](https://arxiv.org/abs/2008.07772)
-- [Simple and Effective Noisy Channel Modeling for Neural Machine Translation](https://arxiv.org/pdf/1908.05731.pdf)
+- [Simple and Effective Noisy Channel Modeling for Neural Machine Translation](https://arxiv.org/abs/1908.05731.pdf)
