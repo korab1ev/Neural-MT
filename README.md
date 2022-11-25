@@ -1,6 +1,5 @@
 # Files:
 - ``notebook.ipynb`` - contains all experimental results
-- ``notebook-desc.ipynb`` - more detailed notebook (contains auxilary outputs & pictures)
 - ``models.py`` - code for all the models 
 - ``utils.py`` - helper functions
 
