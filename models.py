@@ -38,7 +38,7 @@ class BasicModel(nn.Module):
         inp_emb = self.emb_inp(inp) # get an embedding of input sequence from imp_lookup_table 
         batch_size = inp.shape[0]
 
-        enc_seq, [last_state_but_not_really] = self.enc0(inp_emb)  # output_data, h_n_data = my_gru(input_data, h_0_data)
+        enc_seq, last_state_but_not_really = self.enc0(inp_emb)  # output_data, h_n_data = my_gru(input_data, h_0_data)
         # enc_seq: [batch, time, hid_size], last_state: [batch, hid_size]
         # enc_seq -> contains the output features (h_t) from the last layer of the GRU, for each t
         # last_state -> last state h_t of encoder (h_0 for decoder)
@@ -109,7 +109,9 @@ class BasicModel(nn.Module):
         outputs = [[(self.out_voc.bos_ix,)] * batch_size]
         probs = np.zeros(shape=(beam_size, batch_size))
         #states = [deepcopy([initial_state[0].detach()]) for _ in range(beam_size)]
-        states = [deepcopy(initial_state) for _ in range(beam_size)]
+
+        # change .cuda() to .cpu() if training on cpu
+        states = [deepcopy([state.detach() for state in initial_state]) for _ in range(beam_size)]
         
         for _ in range(max_len):
             next_beams = [[] for _ in range(batch_size)] 
@@ -140,8 +142,7 @@ class BasicModel(nn.Module):
                     states[j][0][i] = states_history[beam_idx][0][i]
         #print('outputs = \n', outputs)
 
-        #return outputs[0], states
-        return outputs[0]
+        return outputs[0], states
 
     def translate_lines(self, inp_lines, device, beam_size=None, **kwargs):
         inp = self.inp_voc.to_matrix(inp_lines).to(device)
@@ -150,7 +151,7 @@ class BasicModel(nn.Module):
             out_ids, states = self.decode_inference(initial_state, **kwargs)
             # states -> [n_inp x [batch_size x hid_size]]
         else:
-            out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs), None
+            out_ids, states = self.decode_inference_beam_search(initial_state, beam_size, **kwargs)
         return self.out_voc.to_lines(out_ids), states
 
 
@@ -205,11 +206,17 @@ class AttentionLayer(nn.Module):
 
 class AttentiveModel(BasicModel):
     def __init__(self, inp_voc, out_voc,
-                 emb_size=64, hid_size=128, attn_size=128, bid=False):
+                 emb_size=64, hid_size=128, num_layers=2,
+                 attn_size=128, bid=False):
         """ Translation model that uses attention. """
         super().__init__(inp_voc, out_voc, emb_size, hid_size)
 
-        self.enc0 = nn.GRU(emb_size, hid_size, batch_first=True, bidirectional=bid)
+        
+        self.enc0 = nn.LSTM(emb_size, hid_size,
+                            num_layers, batch_first=True, 
+                            bidirectional=bid)
+        
+        #self.enc0 = nn.GRU(emb_size, hid_size, batch_first=True, bidirectional=bid)
         self.dec_start = nn.Linear(hid_size + hid_size * bid, hid_size)
         
         #self.Wc = nn.Linear(emb_size + hid_size + hid_size * bid, emb_size + hid_size + hid_size * bid)
@@ -227,9 +234,10 @@ class AttentiveModel(BasicModel):
         """
         inp_emb = self.emb_inp(inp)
 
-        enc_seq, [last_state_but_not_really] = self.enc0(inp_emb) 
+        enc_seq, last_state_but_not_really = self.enc0(inp_emb) 
         
         [dec_start] = super().encode(inp, **flags)
+        #[dec_start] = self.enc0(inp, **flags)
 
         # compute mask for input sequence
         enc_mask = self.out_voc.compute_mask(inp)
