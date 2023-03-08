@@ -43,7 +43,7 @@ def compute_loss(model, inp, out, **flags):
     return -logp_out[mask].mean()
 
 
-def compute_bleu(model, inp_lines, out_lines, device, bpe_sep='@@ ', batch_size=32, beam_size=None, **flags):
+def compute_bleu(model, inp_lines, out_lines, device, bpe_sep='@@ ', batch_size=32, **flags):
     """
     Estimates corpora-level BLEU score of model's translations given inp and reference out
     Note: if you're serious about reporting your results, use https://pypi.org/project/sacrebleu
@@ -53,7 +53,7 @@ def compute_bleu(model, inp_lines, out_lines, device, bpe_sep='@@ ', batch_size=
         # optimizing memory
         translations = []
         for i in range(0, len(inp_lines), batch_size):
-            translations.extend(model.translate_lines(inp_lines[i:i+batch_size], device, beam_size=beam_size, **flags)[0])
+            translations.extend(model.translate_lines(inp_lines[i:i+batch_size], device, **flags)[0])
 
         translations = [line.replace(bpe_sep, '') for line in translations]
         actual = [line.replace(bpe_sep, '') for line in out_lines]
