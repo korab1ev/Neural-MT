@@ -8,8 +8,8 @@
 + Transformer no-fine-tuning translations
 + Transformer + fine-tuning translations
 + Transformer + fine-tuning + augmentation
-3) ``models.py`` - code for all the models 
-4) ``utils.py`` - helper functions
+3) ``models.py`` - code for models (2022.07)
+4) ``utils.py`` - helper functions 
 
 # Articles:
 
