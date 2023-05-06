@@ -8,8 +8,9 @@
 + Transformer no-fine-tuning translations
 + Transformer + fine-tuning translations
 + Transformer + fine-tuning + augmentation
-3) ``models.py`` - code for models (2022.07)
-4) ``utils.py`` - helper functions 
+3) ``augment-data-prep.ipynb`` - Подготовка данных **GeoNames** для аугментации
+4) ``models.py`` - code for models (2022.07)
+5) ``utils.py`` - helper functions 
 
 # Articles:
 
