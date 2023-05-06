@@ -1,17 +1,15 @@
 # Files:
-- ``notebook.ipynb`` - contains all experimental results
-- ``models.py`` - code for all the models 
-- ``utils.py`` - helper functions
-
-# To-do:
-
-1. __Solutions & ways to impove BLEU__:
-- Noisy channel model
-- Reinforcement learning
-- Globally normalized models
-2. __Local length normalization__ (the model is bias towards shorter candidates)
-3. __Visualise attentions__
-
+1) ``notebook.ipynb`` - Старые эксперименты (2022.07) 
+ + **Basic model** (RNN encoder + RNN decoder)
+ + **Attentive model** (3-layer Bi-LSTM encoder + GRU decoder with attention)
+ + **Larger attentive model** (**emb_size**=256, **hid_size**=256, **attn_size**=256)
+ + **Transformer model** (fine-tuning)
+2) ``transformer-and-augmentation.ipynb`` - Последние эксперименты (2023)
++ Transformer no-fine-tuning translations
++ Transformer + fine-tuning translations
++ Transformer + fine-tuning + augmentation
+3) ``models.py`` - code for all the models 
+4) ``utils.py`` - helper functions
 
 # Articles:
 
